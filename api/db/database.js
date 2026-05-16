@@ -1,7 +1,12 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'gateway-db.json');
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+
+const DB_PATH = isVercel
+  ? '/tmp/gateway-db.json'
+  : path.join(__dirname, 'db', 'gateway-db.json');
 
 const DEFAULT_DB = {
   version: '1.0.0',
@@ -42,7 +47,7 @@ const DEFAULT_DB = {
       }
     }
   },
-  rateLimits: {
+  rateLimitConfig: {
     default: {
       requestsPerMinute: 10,
       requestsPerHour: 100,
@@ -105,22 +110,36 @@ const DEFAULT_DB = {
   }
 };
 
+let dbCache = null;
+let cacheTime = 0;
+
 function loadDB() {
+  const now = Date.now();
+  if (dbCache && now - cacheTime < 1000) {
+    return dbCache;
+  }
+
   try {
     if (fs.existsSync(DB_PATH)) {
       const data = fs.readFileSync(DB_PATH, 'utf-8');
-      return JSON.parse(data);
+      dbCache = JSON.parse(data);
+      cacheTime = now;
+      return dbCache;
     }
   } catch (e) {
     console.error('DB load error:', e.message);
   }
-  saveDB(DEFAULT_DB);
-  return JSON.parse(JSON.stringify(DEFAULT_DB));
+
+  dbCache = JSON.parse(JSON.stringify(DEFAULT_DB));
+  saveDB(dbCache);
+  return dbCache;
 }
 
 function saveDB(db) {
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf-8');
+    dbCache = db;
+    cacheTime = Date.now();
   } catch (e) {
     console.error('DB save error:', e.message);
   }
@@ -136,7 +155,6 @@ function generateKey(prefix = 'sk') {
 }
 
 function hashKey(key) {
-  const crypto = require('crypto');
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
