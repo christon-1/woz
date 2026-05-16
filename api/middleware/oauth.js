@@ -1,4 +1,4 @@
-const { loadDB, saveDB, generateKey, hashKey } = require('../db/database');
+const { loadDB, saveDB, generateKey, hashKey } = require('./db/database');
 const crypto = require('crypto');
 
 function generateOAuthState() {
@@ -12,9 +12,10 @@ function generateOAuthCode() {
 function initiateOAuth(provider, redirectUri) {
   const db = loadDB();
   const state = generateOAuthState();
-  const oauthSecret = process.env.OAUTH_SECRET || 'oauth-secret-change-me';
 
-  const config = db.oauth.providers[provider];
+  if (!db.oauth) db.oauth = { providers: {}, tokens: {} };
+
+  const config = db.oauth.providers && db.oauth.providers[provider];
   if (!config) {
     return { error: `OAuth provider '${provider}' not configured` };
   }
@@ -28,18 +29,27 @@ function initiateOAuth(provider, redirectUri) {
 
   saveDB(db);
 
-  const authUrl = new URL(config.authUrl);
-  authUrl.searchParams.set('client_id', config.clientId);
-  authUrl.searchParams.set('redirect_uri', redirectUri);
-  authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('state', state);
-  authUrl.searchParams.set('scope', config.scopes.join(' '));
+  try {
+    const authUrl = new URL(config.authUrl);
+    authUrl.searchParams.set('client_id', config.clientId);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('scope', (config.scopes || ['read']).join(' '));
 
-  return { authUrl: authUrl.toString(), state };
+    return { authUrl: authUrl.toString(), state };
+  } catch (e) {
+    return { error: 'Invalid auth URL configuration' };
+  }
 }
 
 async function handleOAuthCallback(provider, code, state) {
   const db = loadDB();
+
+  if (!db.oauth || !db.oauth.tokens) {
+    return { error: 'OAuth not initialized' };
+  }
+
   const tokenData = db.oauth.tokens[state];
 
   if (!tokenData || tokenData.provider !== provider) {
@@ -52,7 +62,7 @@ async function handleOAuthCallback(provider, code, state) {
     return { error: 'OAuth state expired' };
   }
 
-  const config = db.oauth.providers[provider];
+  const config = db.oauth.providers && db.oauth.providers[provider];
   if (!config) {
     return { error: 'Provider not configured' };
   }
@@ -84,6 +94,7 @@ async function handleOAuthCallback(provider, code, state) {
 
     const userId = `${provider}:${user.id || user.sub || user.login}`;
 
+    if (!db.users) db.users = {};
     if (!db.users[userId]) {
       db.users[userId] = {
         id: userId,
@@ -97,6 +108,7 @@ async function handleOAuthCallback(provider, code, state) {
     const apiKey = generateKey('sk-oauth');
     const hashedKey = hashKey(apiKey);
 
+    if (!db.apiKeys) db.apiKeys = {};
     db.apiKeys[hashedKey] = {
       userId,
       tier: db.users[userId].tier || 'free',
@@ -127,6 +139,9 @@ async function handleOAuthCallback(provider, code, state) {
 
 function configureOAuthProvider(provider, config) {
   const db = loadDB();
+  if (!db.oauth) db.oauth = { providers: {}, tokens: {} };
+  if (!db.oauth.providers) db.oauth.providers = {};
+
   db.oauth.providers[provider] = {
     clientId: config.clientId,
     clientSecret: config.clientSecret,
