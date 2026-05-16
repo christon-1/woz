@@ -1,31 +1,22 @@
 {
   "version": 2,
-  "functions": {
-    "api/index.js": {
-      "memory": 1024,
-      "maxDuration": 30
-    },
-    "api/routes/*.js": {
-      "memory": 512,
-      "maxDuration": 60
-    }
-  },
   "routes": [
-    { "src": "/v1/chat/completions", "dest": "/api/routes/chat.js" },
-    { "src": "/v1/models", "dest": "/api/routes/models.js" },
-    { "src": "/v1/keys", "dest": "/api/routes/keys.js" },
-    { "src": "/v1/credits", "dest": "/api/routes/credits.js" },
-    { "src": "/v1/oauth/authorize", "dest": "/api/routes/oauth.js" },
-    { "src": "/v1/oauth/callback", "dest": "/api/routes/oauth.js" },
-    { "src": "/v1/admin/(.*)", "dest": "/api/routes/admin.js" },
-    { "src": "/v1/(.*)", "dest": "/api/index.js" },
-    { "src": "/health", "dest": "/api/index.js" }
+    { "src": "/v1/chat/completions", "dest": "/api/chat.js" },
+    { "src": "/v1/models", "dest": "/api/models.js" },
+    { "src": "/v1/keys", "dest": "/api/keys.js" },
+    { "src": "/v1/credits", "dest": "/api/credits.js" },
+    { "src": "/v1/oauth/authorize", "dest": "/api/oauth.js" },
+    { "src": "/v1/oauth/callback", "dest": "/api/oauth.js" },
+    { "src": "/v1/admin/(.*)", "dest": "/api/admin.js" },
+    { "src": "/health", "dest": "/api/health.js" },
+    { "src": "/(.*)", "dest": "/api/index.js" }
   ],
   "env": {
     "UPSTREAM_URL": "https://h3xloader.fun/free/v1",
     "UPSTREAM_KEY": "h3xloader24",
     "ADMIN_KEY": "admin-super-key-change-me",
     "OAUTH_SECRET": "oauth-secret-change-me",
-    "DEFAULT_CREDITS": "100"
+    "DEFAULT_CREDITS": "100",
+    "NODE_ENV": "production"
   }
 }
