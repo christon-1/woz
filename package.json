@@ -1,0 +1,17 @@
+{
+  "name": "ai-gateway",
+  "version": "1.0.0",
+  "description": "AI API Gateway with rate limiting, credits, OAuth, and model restrictions",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel deploy --prod",
+    "init-db": "node scripts/init-db.js",
+    "seed": "node scripts/seed-data.js",
+    "admin": "node scripts/admin-cli.js"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "node-fetch": "^3.3.2"
+  }
+}
