@@ -4,7 +4,7 @@
   "description": "AI API Gateway with rate limiting, credits, OAuth, and model restrictions",
   "main": "api/index.js",
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vercel dev",
