@@ -1,7 +1,7 @@
-const { loadDB, saveDB, generateKey, hashKey } = require('../db/database');
+const { loadDB, saveDB, generateKey, hashKey } = require('./db/database');
 
 function authenticateRequest(req) {
-  const authHeader = req.headers['authorization'] || '';
+  const authHeader = (req.headers && req.headers['authorization']) || '';
   const apiKey = authHeader.replace('Bearer ', '').trim();
 
   if (!apiKey) {
@@ -11,7 +11,7 @@ function authenticateRequest(req) {
   const db = loadDB();
   const hashedKey = hashKey(apiKey);
 
-  const keyData = db.apiKeys[hashedKey];
+  const keyData = db.apiKeys && db.apiKeys[hashedKey];
   if (!keyData) {
     return { authenticated: false, error: 'Invalid API key', status: 401 };
   }
@@ -34,7 +34,7 @@ function authenticateRequest(req) {
 }
 
 function authenticateAdmin(req) {
-  const authHeader = req.headers['authorization'] || '';
+  const authHeader = (req.headers && req.headers['authorization']) || '';
   const key = authHeader.replace('Bearer ', '').trim();
   const adminKey = process.env.ADMIN_KEY || 'admin-super-key-change-me';
 
@@ -49,6 +49,8 @@ function createApiKey(userId, tier = 'free', options = {}) {
   const db = loadDB();
   const rawKey = generateKey('sk');
   const hashedKey = hashKey(rawKey);
+
+  if (!db.apiKeys) db.apiKeys = {};
 
   db.apiKeys[hashedKey] = {
     userId,
@@ -76,7 +78,7 @@ function createApiKey(userId, tier = 'free', options = {}) {
 
 function revokeApiKey(hashedKey) {
   const db = loadDB();
-  if (!db.apiKeys[hashedKey]) {
+  if (!db.apiKeys || !db.apiKeys[hashedKey]) {
     return { success: false, error: 'Key not found' };
   }
 
@@ -90,6 +92,8 @@ function revokeApiKey(hashedKey) {
 function listApiKeys(userId) {
   const db = loadDB();
   const keys = [];
+
+  if (!db.apiKeys) return keys;
 
   for (const [hash, data] of Object.entries(db.apiKeys)) {
     if (data.userId === userId) {
