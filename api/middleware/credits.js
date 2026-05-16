@@ -1,4 +1,4 @@
-const { loadDB, saveDB } = require('../db/database');
+const { loadDB, saveDB } = require('./db/database');
 
 function checkCredits(apiKey, model) {
   const db = loadDB();
@@ -8,6 +8,7 @@ function checkCredits(apiKey, model) {
   }
 
   const userId = keyData.userId || apiKey;
+  if (!db.credits) db.credits = {};
   if (!db.credits[userId]) {
     db.credits[userId] = {
       balance: parseInt(process.env.DEFAULT_CREDITS || '100'),
@@ -19,7 +20,7 @@ function checkCredits(apiKey, model) {
   }
 
   const creditData = db.credits[userId];
-  const price = db.creditPrices[model] || 1;
+  const price = (db.creditPrices && db.creditPrices[model]) || 1;
 
   if (creditData.balance < price) {
     return {
@@ -46,7 +47,7 @@ function deductCredits(apiKey, model, tokensUsed = 0) {
 
   if (!db.credits[userId]) return;
 
-  const price = db.creditPrices[model] || 1;
+  const price = (db.creditPrices && db.creditPrices[model]) || 1;
   db.credits[userId].balance -= price;
   db.credits[userId].totalUsed += price;
   db.credits[userId].history.push({
@@ -58,6 +59,7 @@ function deductCredits(apiKey, model, tokensUsed = 0) {
     balance: db.credits[userId].balance
   });
 
+  if (!db.stats) db.stats = { totalRequests: 0, totalTokens: 0, totalCreditsUsed: 0 };
   db.stats.totalCreditsUsed += price;
   saveDB(db);
 
@@ -72,6 +74,7 @@ function addCredits(apiKeyOrUserId, amount, reason = 'admin') {
   const db = loadDB();
   const userId = apiKeyOrUserId;
 
+  if (!db.credits) db.credits = {};
   if (!db.credits[userId]) {
     db.credits[userId] = {
       balance: 0,
@@ -106,7 +109,7 @@ function getCreditBalance(apiKey) {
   if (!keyData) return null;
 
   const userId = keyData.userId || apiKey;
-  return db.credits[userId] || null;
+  return (db.credits && db.credits[userId]) || null;
 }
 
 module.exports = { checkCredits, deductCredits, addCredits, getCreditBalance };
