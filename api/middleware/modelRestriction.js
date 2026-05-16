@@ -1,4 +1,4 @@
-const { loadDB } = require('../db/database');
+const { loadDB } = require('./db/database');
 
 function checkModelAccess(apiKey, model) {
   const db = loadDB();
@@ -8,13 +8,14 @@ function checkModelAccess(apiKey, model) {
   }
 
   const tier = keyData.tier || 'free';
-  const restrictions = db.modelRestrictions.tiers[tier] || db.modelRestrictions.default;
+  const mr = db.modelRestrictions || {};
+  const restrictions = (mr.tiers && mr.tiers[tier]) || mr.default || { allowed: [], blocked: [] };
 
   if (restrictions.allowed === 'all') {
     return { allowed: true, tier };
   }
 
-  if (restrictions.blocked.includes(model)) {
+  if (restrictions.blocked && restrictions.blocked.includes(model)) {
     return {
       allowed: false,
       error: `Model '${model}' is blocked for ${tier} tier`,
@@ -23,7 +24,7 @@ function checkModelAccess(apiKey, model) {
     };
   }
 
-  if (restrictions.allowed.length > 0 && !restrictions.allowed.includes(model)) {
+  if (restrictions.allowed && restrictions.allowed.length > 0 && !restrictions.allowed.includes(model)) {
     return {
       allowed: false,
       error: `Model '${model}' is not available in ${tier} tier`,
@@ -39,18 +40,19 @@ function getAvailableModels(apiKey) {
   const db = loadDB();
   const keyData = db.apiKeys[apiKey];
   const tier = keyData ? (keyData.tier || 'free') : 'free';
-  const restrictions = db.modelRestrictions.tiers[tier] || db.modelRestrictions.default;
+  const mr = db.modelRestrictions || {};
+  const restrictions = (mr.tiers && mr.tiers[tier]) || mr.default || { allowed: [], blocked: [] };
 
   if (restrictions.allowed === 'all') {
-    return Object.keys(db.creditPrices);
+    return Object.keys(db.creditPrices || {});
   }
 
-  return restrictions.allowed.filter(m => !restrictions.blocked.includes(m));
+  return (restrictions.allowed || []).filter(m => !(restrictions.blocked || []).includes(m));
 }
 
 function getModelPrice(model) {
   const db = loadDB();
-  return db.creditPrices[model] || 1;
+  return (db.creditPrices && db.creditPrices[model]) || 1;
 }
 
 module.exports = { checkModelAccess, getAvailableModels, getModelPrice };
