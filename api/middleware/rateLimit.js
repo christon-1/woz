@@ -1,4 +1,4 @@
-const { loadDB, saveDB } = require('../db/database');
+const { loadDB, saveDB } = require('./db/database');
 
 function checkRateLimit(apiKey, model = 'default') {
   const db = loadDB();
@@ -13,8 +13,9 @@ function checkRateLimit(apiKey, model = 'default') {
   }
 
   const tier = keyData.tier || 'free';
-  const limits = db.rateLimits.tiers[tier] || db.rateLimits.default;
+  const limits = (db.rateLimitConfig && db.rateLimitConfig.tiers && db.rateLimitConfig.tiers[tier]) || (db.rateLimitConfig && db.rateLimitConfig.default) || { requestsPerMinute: 10, requestsPerHour: 100, requestsPerDay: 1000 };
 
+  if (!db.rateLimits) db.rateLimits = {};
   if (!db.rateLimits[apiKey]) {
     db.rateLimits[apiKey] = { requests: [], tokens: [] };
   }
@@ -22,7 +23,7 @@ function checkRateLimit(apiKey, model = 'default') {
   const rl = db.rateLimits[apiKey];
 
   rl.requests = rl.requests.filter(t => t > dayAgo);
-  rl.tokens = rl.tokens.filter(t => t > dayAgo);
+  rl.tokens = rl.tokens.filter(t => t.time > dayAgo);
 
   const minuteReqs = rl.requests.filter(t => t > minuteAgo).length;
   const hourReqs = rl.requests.filter(t => t > hourAgo).length;
@@ -38,8 +39,8 @@ function checkRateLimit(apiKey, model = 'default') {
     return { allowed: false, error: 'Rate limit exceeded: requests per day', retryAfter: 86400, status: 429 };
   }
 
-  const minuteTokens = rl.tokens.filter(t => t > minuteAgo).reduce((sum, t) => sum + (t.tokens || 0), 0);
-  if (minuteTokens >= limits.tokensPerMinute) {
+  const minuteTokens = rl.tokens.filter(t => t.time > minuteAgo).reduce((sum, t) => sum + (t.tokens || 0), 0);
+  if (limits.tokensPerMinute && minuteTokens >= limits.tokensPerMinute) {
     return { allowed: false, error: 'Rate limit exceeded: tokens per minute', retryAfter: 60, status: 429 };
   }
 
@@ -59,6 +60,7 @@ function checkRateLimit(apiKey, model = 'default') {
 
 function recordTokenUsage(apiKey, tokens) {
   const db = loadDB();
+  if (!db.rateLimits) db.rateLimits = {};
   if (!db.rateLimits[apiKey]) {
     db.rateLimits[apiKey] = { requests: [], tokens: [] };
   }
